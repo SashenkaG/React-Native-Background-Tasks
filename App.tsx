@@ -1,117 +1,140 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- */
-
-import React from 'react';
-import type {PropsWithChildren} from 'react';
+import axios from 'axios';
+import React, { useState } from 'react';
 import {
   SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
   Text,
-  useColorScheme,
   View,
+  TouchableOpacity,
+  Platform,
 } from 'react-native';
+import BackgroundJob from 'react-native-background-actions';
 
-import {
-  Colors,
-  DebugInstructions,
-  Header,
-  LearnMoreLinks,
-  ReloadInstructions,
-} from 'react-native/Libraries/NewAppScreen';
-
-type SectionProps = PropsWithChildren<{
-  title: string;
-}>;
-
-function Section({children, title}: SectionProps): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
-  return (
-    <View style={styles.sectionContainer}>
-      <Text
-        style={[
-          styles.sectionTitle,
-          {
-            color: isDarkMode ? Colors.white : Colors.black,
-          },
-        ]}>
-        {title}
-      </Text>
-      <Text
-        style={[
-          styles.sectionDescription,
-          {
-            color: isDarkMode ? Colors.light : Colors.dark,
-          },
-        ]}>
-        {children}
-      </Text>
-    </View>
-  );
+const api = axios.create({
+  baseURL: 'https://notes-backend-sashenkag-sashenkas-projects.vercel.app/api',
+  withCredentials: true, // If your backend uses cookies
+});
+const fetchNotes = async () => {
+  try {
+    const response = await api.get('/get-notes');
+    return response.data;
+  } catch (error) {
+    console.error(error);
+    throw error;
+  }
+};
+// Define the type for taskData
+interface TaskData {
+  delay: number;
 }
 
-function App(): React.JSX.Element {
-  const isDarkMode = useColorScheme() === 'dark';
+// Helper function to simulate sleep/delay
+const sleep = (delay: number) => new Promise((resolve) => setTimeout(resolve, delay));
 
-  const backgroundStyle = {
-    backgroundColor: isDarkMode ? Colors.darker : Colors.lighter,
+// Background task handler
+const taskRandom = async (taskData?: TaskData) => {
+  if (Platform.OS === 'android') {
+    console.warn(
+      'This task will not keep your app alive in the background by itself. Use other libraries to ensure the app stays alive in the background.'
+    );
+  }
+
+  const delay = taskData?.delay ?? 30000; // Default to 30 seconds if delay is undefined
+  console.log('Task started with delay:', delay);
+
+  while (BackgroundJob.isRunning()) {
+    console.log('Hello'); // Log "Hello" every delay period //can use this to call an api
+    try {
+      const notes = await fetchNotes();
+    console.log("notes", notes);
+    } catch (error) {
+      console.log("error getting data-",error)
+    }
+    await sleep(delay); // Wait for the delay
+  }
+};
+
+// Configuration options for the background job
+const options = {
+  taskName: 'Example',
+  taskTitle: 'Example Task Title',
+  taskDesc: 'Example Task Description',
+  taskIcon: {
+    name: 'ic_launcher',
+    type: 'mipmap',
+  },
+  color: '#ff00ff',
+  parameters: {
+    delay: 30000, // 1 minute in milliseconds
+  },
+};
+
+const App: React.FC = () => {
+  const [playing, setPlaying] = useState(BackgroundJob.isRunning());
+
+  // Function to start/stop the background task
+  const toggleBackground = async () => {
+    if (!playing) {
+      try {
+        console.log('Trying to start background service');
+        
+        if (BackgroundJob && BackgroundJob.start) {
+          await BackgroundJob.start(taskRandom, options);
+          console.log('Background service started successfully!');
+        } else {
+          console.error('BackgroundJob or BackgroundJob.start is not available');
+        }
+      } catch (e) {
+        console.error('Error starting background job:', e);
+      }
+    } else {
+      console.log('Stopping background service');
+      try {
+        await BackgroundJob.stop();
+        console.log('Background service stopped successfully!');
+      } catch (e) {
+        console.error('Error stopping background job:', e);
+      }
+    }
+    setPlaying(!playing); // Toggle playing state
   };
 
   return (
-    <SafeAreaView style={backgroundStyle}>
-      <StatusBar
-        barStyle={isDarkMode ? 'light-content' : 'dark-content'}
-        backgroundColor={backgroundStyle.backgroundColor}
-      />
-      <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        style={backgroundStyle}>
-        <Header />
-        <View
-          style={{
-            backgroundColor: isDarkMode ? Colors.black : Colors.white,
-          }}>
-          <Section title="Step One">
-            Edit <Text style={styles.highlight}>App.tsx</Text> to change this
-            screen and then come back to see your edits.
-          </Section>
-          <Section title="See Your Changes">
-            <ReloadInstructions />
-          </Section>
-          <Section title="Debug">
-            <DebugInstructions />
-          </Section>
-          <Section title="Learn More">
-            Read the docs to discover what to do next:
-          </Section>
-          <LearnMoreLinks />
-        </View>
-      </ScrollView>
-    </SafeAreaView>
+    <>
+      <StatusBar barStyle="dark-content" />
+      <SafeAreaView>
+        <ScrollView contentInsetAdjustmentBehavior="automatic" style={styles.scrollView}>
+          <View style={styles.body}>
+            <TouchableOpacity
+              style={{ height: 100, width: 100, backgroundColor: 'red', justifyContent: 'center' }}
+              onPress={toggleBackground}
+            >
+              <Text style={styles.buttonText}>
+                {playing ? 'Stop Background Task' : 'Start Background Task'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </SafeAreaView>
+    </>
   );
-}
+};
 
 const styles = StyleSheet.create({
-  sectionContainer: {
-    marginTop: 32,
-    paddingHorizontal: 24,
+  scrollView: {
+    backgroundColor: '#F3F3F3',
   },
-  sectionTitle: {
-    fontSize: 24,
-    fontWeight: '600',
+  body: {
+    backgroundColor: '#FFFFFF',
+    padding: 20,
+    alignItems: 'center',
   },
-  sectionDescription: {
-    marginTop: 8,
-    fontSize: 18,
-    fontWeight: '400',
-  },
-  highlight: {
-    fontWeight: '700',
+  buttonText: {
+    color: 'white',
+    textAlign: 'center',
+    fontWeight: 'bold',
   },
 });
 
