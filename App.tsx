@@ -12,16 +12,30 @@ import {
 } from 'react-native';
 import BackgroundJob from 'react-native-background-actions';
 
-const api = axios.create({
-  baseURL: 'https://notes-backend-sashenkag-sashenkas-projects.vercel.app/api',
-  withCredentials: true, // If your backend uses cookies
-});
 const fetchNotes = async () => {
   try {
-    const response = await api.get('/get-notes');
+    const body = {
+      userId: 'bf02852c-8c2e-4545-2429-08dc50b06577',
+      timezoneDifference: 5.50,
+      communicationToken: '',
+      communicationUserId: '',
+      result: ''
+    };
+
+    const response = await axios.post(
+      'https://lahospitalito-dev-api.azurewebsites.net/api/Account/communication-data', 
+      body, 
+      {
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': '*/*' 
+        }
+      }
+    );
+    
+
     return response.data;
   } catch (error) {
-    console.error(error);
     throw error;
   }
 };
